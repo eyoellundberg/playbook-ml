@@ -243,7 +243,7 @@ Generates 16 candidate strategies per batch. Each batch evolves from the last: t
 Sonnet reads the warm playbook and generates 16 named strategy archetypes — each with a philosophy, not just parameters. The sim tests all 16 across hundreds of scenarios. Haiku extracts conditional principles every 10 rounds. The director reads results between batches, retires losers, sharpens the next library. By batch 5, Sonnet is refining its own prior designs based on what the sim proved.
 
 **Stage 3 — Local model (free forever)**
-Export the tournament log as training data. For numerical domains: train XGBoost — tiny, fast, explainable, microsecond inference. For language domains: fine-tune Qwen 1.5B via MLX-LM on Apple Silicon. No more API calls. Ever.
+Export the tournament log as training data. For numerical domains: train XGBoost — tiny, fast, explainable, microsecond inference. For language domains: fine-tune Qwen3-4B via MLX-LM on Apple Silicon. No more API calls. Ever.
 
 ```
 mission.md → bootstrap → Stage 1 → Stage 2 → saturated → export → local specialist
@@ -299,15 +299,18 @@ model = xgb.train({"max_depth": 4, "eta": 0.1}, xgb.DMatrix(X, label=y), num_boo
 This is a reward model: features = state + strategy, label = score. At inference time, generate N candidate strategies, score each, pick the best.
 
 **Language domain** (text classification, routing, document scoring):
+
+Default: `Qwen3-4B` — better instruction following and vertical nuance. Use `Qwen3-1.7B` for fast iteration, weak hardware, or parallel agents.
+
 ```bash
 python run.py export --domain TicketTriage
-mlx_lm.lora --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+mlx_lm.lora --model mlx-community/Qwen3-4B-4bit \
              --data TicketTriage/ --train --iters 1000
 ```
 
 **Production inference via Ollama (language domain):**
 ```bash
-mlx_lm.fuse --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+mlx_lm.fuse --model mlx-community/Qwen3-4B-4bit \
              --adapter-path TicketTriage/adapters --save-path TicketTriage/fused-model
 python llama.cpp/convert_hf_to_gguf.py TicketTriage/fused-model \
   --outfile TicketTriage/model.gguf --outtype q8_0
