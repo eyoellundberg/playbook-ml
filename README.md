@@ -300,7 +300,7 @@ This is a reward model: features = state + strategy, label = score. At inference
 
 **Language domain** (text classification, routing, document scoring):
 
-Default: `Qwen3-4B` — better instruction following and vertical nuance. Use `Qwen3-1.7B` for fast iteration, weak hardware, or parallel agents.
+Default: `Qwen3-4B` — better instruction following and vertical nuance. Use `Qwen3-1.7B` for fast iteration, weak hardware, or parallel agents. The model (~2.3 GB) downloads automatically from Hugging Face on first run and is cached permanently.
 
 ```bash
 python run.py export --domain TicketTriage
