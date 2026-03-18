@@ -69,6 +69,9 @@ python run.py bootstrap GrainMarketing \
 # Review GrainMarketing/simulation.py — calibrate until the right strategy wins
 # in each scenario type. This is the only manual step.
 
+# Check scenario distributions, score range, and dominance issues
+python run.py calibrate --domain GrainMarketing
+
 # Validate domain before running (catches bad simulation.py early)
 python run.py validate --domain MyDomain
 
@@ -170,6 +173,60 @@ MyDomain/
 - No single strategy dominates regardless of scenario?
 
 Real data is optional: place CSVs in `MyDomain/data/`. Only `simulation.py` reads it. `random_state()` samples from real distributions instead of synthetic ones. Autoforge doesn't change.
+
+---
+
+## Real Data & Calibration
+
+**Three situations:**
+
+| | What you have | What to do |
+|---|---|---|
+| No data | Nothing yet | Use synthetic `random_state()` — Autoforge explores the space |
+| Real data | Historical records, CSVs | Calibrate `random_state()` to draw from real distributions |
+| Abundant labels | Clean (input → output) pairs | You don't need Autoforge — just train directly |
+
+The most powerful case is the middle one. Real data captures what happened. The simulation discovers what *should* have happened. Training on simulation output that was calibrated to real distributions gives you optimal decisions — not recorded human ones, which are often late, emotional, or constrained.
+
+**Calibrating `random_state()` with a CSV:**
+
+```python
+# simulation.py
+import csv, random
+from pathlib import Path
+
+_DATA = None
+
+def _load_data():
+    global _DATA
+    if _DATA is None:
+        rows = []
+        with open(Path(__file__).parent / "data" / "history.csv") as f:
+            for row in csv.DictReader(f):
+                rows.append(row)
+        _DATA = rows
+    return _DATA
+
+def random_state() -> dict:
+    row = random.choice(_load_data())
+    return {
+        "demand":   float(row["demand"]),
+        "basis":    float(row["basis"]),
+        "is_event": row["is_event"] == "True",
+    }
+```
+
+The tournament runs identically. The only change is that scenarios now come from your real market history instead of a synthetic distribution.
+
+**Verify calibration before a long run:**
+
+```bash
+python run.py calibrate --domain GrainMarketing
+```
+
+This samples 500 scenarios, shows distributions for every state key, scores 8 random candidates, and flags problems: dominant strategies, zero-heavy scores, low variance. Fix issues in `simulation.py`, re-run calibrate, then run the tournament.
+
+**The hybrid advantage:** if your historical data shows 200 drought years, 150 normal years, 50 event years — `random_state()` reflects that ratio. Autoforge then generates thousands more scenarios in those proportions and trains on what won. You end up with a model that knows *your* market, not the average market.
 
 ---
 

@@ -25,6 +25,15 @@ new <Domain>
 
     python run.py new GrainMarketing
 
+calibrate --domain <Domain> [--n N]
+    Sample N random scenarios, show distributions for each state key, score
+    8 random candidates, and flag calibration issues (dominant strategies,
+    zero-heavy scores, low variance). Run this after editing simulation.py
+    before committing to a long run.
+
+    python run.py calibrate --domain GrainMarketing
+    python run.py calibrate --domain GrainMarketing --n 1000
+
 run --domain <Domain> [options]
     Run the tournament. Loads tournament.py from the domain folder and
     calls run_batch() for each batch. Between batches, the director AI
@@ -854,6 +863,137 @@ def _print_validation(ok: list, warnings: list, errors: list):
         print(f"  [error] {msg}")
 
 
+def cmd_calibrate(args):
+    """Show scenario distributions, score stats, and dominance check."""
+    import importlib
+    import statistics
+    import collections
+
+    domain_path = ENGINE_ROOT / args.domain
+    if not domain_path.exists():
+        print(f"Domain not found: {domain_path}")
+        sys.exit(1)
+
+    for env_file in [domain_path / ".env", ENGINE_ROOT / ".env"]:
+        if env_file.exists():
+            for line in env_file.read_text().splitlines():
+                if line.strip() and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+    sys.path.insert(0, str(domain_path))
+    os.chdir(domain_path)
+
+    try:
+        sim = importlib.import_module("simulation")
+    except Exception as e:
+        print(f"simulation.py import failed: {e}")
+        sys.exit(1)
+
+    n = args.n
+    print(f"\nCalibrating {args.domain} — sampling {n} scenarios...\n")
+
+    states = [sim.random_state() for _ in range(n)]
+
+    import random as _random
+    schema_props = sim.CANDIDATE_SCHEMA.get("properties", {})
+
+    def random_candidate():
+        c = {}
+        for key, spec in schema_props.items():
+            if spec.get("type") == "number":
+                lo, hi = spec.get("minimum", 0.0), spec.get("maximum", 1.0)
+                c[key] = _random.uniform(lo, hi)
+            elif spec.get("type") == "integer":
+                lo, hi = spec.get("minimum", 0), spec.get("maximum", 10)
+                c[key] = _random.randint(lo, hi)
+            elif "enum" in spec:
+                c[key] = _random.choice(spec["enum"])
+            else:
+                c[key] = None
+        return c
+
+    candidates = [random_candidate() for _ in range(8)]
+    win_counts = collections.Counter()
+    all_scores = []
+
+    for state in states:
+        scored = [(sim.simulate(c, state), i) for i, c in enumerate(candidates)]
+        scored.sort(reverse=True)
+        all_scores.append(scored[0][0])
+        win_counts[scored[0][1]] += 1
+
+    # ── Scenario distribution ─────────────────────────────────────────────────
+    tbl = Table(title=f"Scenario Distribution ({n} samples)", show_header=True)
+    tbl.add_column("Key")
+    tbl.add_column("Type")
+    tbl.add_column("Distribution")
+
+    for k in list(states[0].keys()):
+        vals = [s[k] for s in states if k in s]
+        if not vals:
+            continue
+        if isinstance(vals[0], bool):
+            true_pct = sum(1 for v in vals if v) / len(vals) * 100
+            tbl.add_row(k, "bool", f"{true_pct:.0f}% True  /  {100-true_pct:.0f}% False")
+        elif isinstance(vals[0], (int, float)):
+            tbl.add_row(k, "number",
+                f"min {min(vals):.2f}  median {statistics.median(vals):.2f}  max {max(vals):.2f}")
+        else:
+            counts = collections.Counter(vals)
+            top = sorted(counts.items(), key=lambda x: -x[1])[:6]
+            tbl.add_row(k, "categorical",
+                "  ".join(f"{v}: {c/len(vals)*100:.0f}%" for v, c in top))
+
+    console.print(tbl)
+
+    # ── Score distribution ────────────────────────────────────────────────────
+    s = sorted(all_scores)
+    q1  = s[len(s) // 4]
+    q3  = s[3 * len(s) // 4]
+    stbl = Table(title=f"Score Distribution ({sim.METRIC_NAME})", show_header=False)
+    stbl.add_column("Metric")
+    stbl.add_column("Value", justify="right")
+    for label, val in [("min", min(all_scores)), ("p25", q1),
+                       ("median", statistics.median(all_scores)),
+                       ("p75", q3), ("max", max(all_scores)),
+                       ("stdev", statistics.stdev(all_scores))]:
+        stbl.add_row(label, f"{val:.2f}")
+    console.print(stbl)
+
+    # ── Dominance check ───────────────────────────────────────────────────────
+    wtbl = Table(title="Candidate Win Distribution (8 random strategies)", show_header=True)
+    wtbl.add_column("Candidate")
+    wtbl.add_column("Wins", justify="right")
+    wtbl.add_column("Win %", justify="right")
+    for i in range(len(candidates)):
+        wins = win_counts.get(i, 0)
+        wtbl.add_row(f"candidate_{i}", str(wins), f"{wins/n*100:.0f}%")
+    console.print(wtbl)
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    issues = []
+    if max(all_scores) == min(all_scores):
+        issues.append("All scores identical — simulate() may not depend on scenario state")
+    elif statistics.stdev(all_scores) < abs(statistics.mean(all_scores)) * 0.05:
+        issues.append("Very low score variance — check that scenario factors affect outcomes")
+    top_pct = win_counts.most_common(1)[0][1] / n * 100
+    if top_pct > 70:
+        issues.append(f"One candidate wins {top_pct:.0f}% of rounds — likely a dominant strategy")
+    zero_pct = sum(1 for sc in all_scores if sc == 0) / len(all_scores) * 100
+    if zero_pct > 30:
+        issues.append(f"{zero_pct:.0f}% of rounds score 0 — check simulate() edge cases")
+
+    if issues:
+        console.print("\n[yellow]Calibration warnings:[/yellow]")
+        for issue in issues:
+            console.print(f"  [yellow]! {issue}[/yellow]")
+        console.print(f"\n[dim]Edit {args.domain}/simulation.py and re-run calibrate.[/dim]")
+    else:
+        console.print(f"\n[green]Calibration looks good.[/green]")
+        console.print(f"  python run.py run --domain {args.domain} --batches 3 --rounds 50")
+
+
 def cmd_validate(args):
     """Sanity-check simulation.py: imports, required exports, schema, sim output."""
     domain_path = ENGINE_ROOT / args.domain
@@ -1092,6 +1232,11 @@ def main():
     p_run.add_argument("--brain",   action="store_true",   help="Stage 2: AI archetypes")
     p_run.add_argument("--auto",    action="store_true",   help="Stage 1 until saturated, then auto-promote to Stage 2")
 
+    # calibrate
+    p_cal = subparsers.add_parser("calibrate", help="Show scenario distributions and score stats")
+    p_cal.add_argument("--domain", required=True, help="Domain subfolder name")
+    p_cal.add_argument("--n", type=int, default=500, help="Scenarios to sample (default 500)")
+
     # validate
     p_validate = subparsers.add_parser("validate", help="Sanity-check a domain's simulation.py")
     p_validate.add_argument("--domain", required=True, help="Domain subfolder name")
@@ -1110,6 +1255,8 @@ def main():
         cmd_bootstrap(args)
     elif args.command == "new":
         cmd_new(args)
+    elif args.command == "calibrate":
+        cmd_calibrate(args)
     elif args.command == "validate":
         cmd_validate(args)
     elif args.command == "run":

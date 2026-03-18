@@ -12,12 +12,39 @@ REQUIRED EXPORTS (Autoforge reads these directly):
   - METRIC_NAME: str                         label shown in logs (e.g. "profit", "accuracy")
 """
 
+import csv
 import random
+from pathlib import Path
 
-# Real data (optional): place CSV/JSON files in data/ alongside this file.
-# random_state() can sample from real distributions instead of synthetic ones.
+# ── Real data (optional) ──────────────────────────────────────────────────────
+#
+# Place CSV/JSON files in data/ alongside this file.
+# random_state() samples from real distributions instead of synthetic ones.
 # simulate() can reference real lookup tables or calibration data.
-# The engine never reads data/ directly — only simulation.py touches it.
+# Autoforge never reads data/ directly — only simulation.py touches it.
+#
+# Pattern for loading a CSV once at module load:
+#
+#   _DATA = None
+#
+#   def _load_data():
+#       global _DATA
+#       if _DATA is None:
+#           rows = []
+#           with open(Path(__file__).parent / "data" / "history.csv") as f:
+#               for row in csv.DictReader(f):
+#                   rows.append(row)
+#           _DATA = rows
+#       return _DATA
+#
+# Then in random_state():
+#   row = random.choice(_load_data())
+#   return {"demand": float(row["demand"]), "basis": float(row["basis"]), ...}
+#
+# The simulation then draws from what actually happened in your market —
+# not a synthetic distribution. The tournament runs the same way.
+# Run `python run.py calibrate --domain MyDomain` to verify the distributions
+# look right before committing to a long run.
 
 
 # ── What a candidate strategy looks like ─────────────────────────────────────
