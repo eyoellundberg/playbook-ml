@@ -7,7 +7,7 @@ import sys
 
 from rich.table import Table
 
-from commands.shared import ENGINE_ROOT, console, load_env, normalize_confidence
+from commands.shared import ENGINE_ROOT, console, load_env, load_sim, normalize_confidence
 
 
 def _print_validation(ok: list, warnings: list, errors: list):
@@ -21,8 +21,6 @@ def _print_validation(ok: list, warnings: list, errors: list):
 
 def cmd_calibrate(args):
     """Show scenario distributions, score stats, and dominance check."""
-    import importlib
-    import os
     import statistics
     import collections
 
@@ -31,15 +29,10 @@ def cmd_calibrate(args):
         print(f"Domain not found: {domain_path}")
         sys.exit(1)
 
-    load_env(domain_path)
-
-    sys.path.insert(0, str(domain_path))
-    os.chdir(domain_path)
-
     try:
-        sim = importlib.import_module("simulation")
-    except Exception as e:
-        print(f"simulation.py import failed: {e}")
+        sim = load_sim(domain_path)
+    except ImportError as e:
+        print(e)
         sys.exit(1)
 
     n = args.n
@@ -193,15 +186,10 @@ def cmd_calibrate(args):
 
 def cmd_validate(args):
     """Sanity-check simulation.py: imports, required exports, schema, sim output."""
-    import os
-
     domain_path = ENGINE_ROOT / args.domain
     if not domain_path.exists():
         print(f"Domain not found: {domain_path}")
         sys.exit(1)
-
-    sys.path.insert(0, str(domain_path))
-    os.chdir(domain_path)
 
     errors   = []
     warnings = []
@@ -209,11 +197,10 @@ def cmd_validate(args):
 
     # 1. Import
     try:
-        import importlib
-        sim = importlib.import_module("simulation")
+        sim = load_sim(domain_path)
         ok.append("simulation.py imports cleanly")
-    except Exception as e:
-        errors.append(f"simulation.py import failed: {e}")
+    except ImportError as e:
+        errors.append(str(e))
         _print_validation(ok, warnings, errors)
         sys.exit(1)
 
@@ -583,8 +570,6 @@ def cmd_install(args):
 
 def cmd_eval(args):
     """Run the champion strategy against eval scenarios and report pass/fail."""
-    import importlib, os, statistics
-
     domain_path = ENGINE_ROOT / args.domain
     if not domain_path.exists():
         print(f"Domain not found: {domain_path}")
@@ -597,15 +582,10 @@ def cmd_eval(args):
         print('  {"id": "test_1", "state": {...}, "description": "...", "min_score": 0}')
         sys.exit(1)
 
-    load_env(domain_path)
-
-    sys.path.insert(0, str(domain_path))
-    os.chdir(domain_path)
-
     try:
-        sim = importlib.import_module("simulation")
-    except Exception as e:
-        print(f"simulation.py import failed: {e}")
+        sim = load_sim(domain_path)
+    except ImportError as e:
+        print(e)
         sys.exit(1)
 
     # Load champion or top candidates
@@ -828,28 +808,23 @@ def cmd_import(args):
     - Appends to tournament_log.jsonl so Stage 3 export includes real decisions
     - Reports distribution comparison vs simulated training data
     """
-    import importlib, os, statistics
+    import statistics
+    from pathlib import Path as _Path
 
     domain_path = ENGINE_ROOT / args.domain
     if not domain_path.exists():
         print(f"Domain not found: {domain_path}")
         sys.exit(1)
 
-    from pathlib import Path as _Path
     input_path = _Path(args.file)
     if not input_path.exists():
         print(f"File not found: {args.file}")
         sys.exit(1)
 
-    load_env(domain_path)
-
-    sys.path.insert(0, str(domain_path))
-    os.chdir(domain_path)
-
     try:
-        sim = importlib.import_module("simulation")
-    except Exception as e:
-        print(f"simulation.py import failed: {e}")
+        sim = load_sim(domain_path)
+    except ImportError as e:
+        print(e)
         sys.exit(1)
 
     # Get expected structure from simulation

@@ -67,8 +67,10 @@ def cmd_run(args):
     all_batch_rows        = []
     auto_consecutive_flat = 0
     hints                 = []
+    adversarial_states    = []
     start_year            = 1
     start_batch           = 1
+    run_id                = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # Sim hash — warn if simulation.py changed since last run
     import hashlib as _hashlib
@@ -140,6 +142,8 @@ def cmd_run(args):
                     hints=hints,
                     use_brain=use_brain,
                     workers=args.workers,
+                    run_id=run_id,
+                    adversarial_states=adversarial_states,
                 )
             except Exception as e:
                 print(f"\n  [batch error: {e}] — skipping to next batch")
@@ -217,6 +221,26 @@ def cmd_run(args):
 
             retire_principles(analysis, domain_path)
             git_commit_batch(args.domain, domain_path, global_batch, result, analysis)
+
+            # Generate adversarial scenarios every 2 Stage 2 batches for the next batch
+            if use_brain and global_batch % 2 == 0:
+                try:
+                    from engine_brain import call_adversarial
+                    champion = None
+                    champ_path = domain_path / "champion_archetype.json"
+                    if champ_path.exists():
+                        champion = json.loads(champ_path.read_text())
+                    adversarial_states = call_adversarial(
+                        domain_path, n=args.rounds // 5,
+                        context_mix=result.get("context_mix"),
+                        champion=champion,
+                    )
+                    if adversarial_states:
+                        print(f"  [adversarial] {len(adversarial_states)} targeted scenarios queued for next batch")
+                except Exception:
+                    adversarial_states = []
+            elif not use_brain:
+                adversarial_states = []
 
             checkpoint_path.write_text(json.dumps({
                 "domain":               args.domain,

@@ -247,6 +247,80 @@ def _clamp_strategy(strategy: dict, schema: dict) -> dict:
     return result
 
 
+_ADVERSARIAL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "scenarios": {"type": "array", "items": {"type": "string"}},
+        "rationale": {"type": "string"},
+    },
+    "required": ["scenarios", "rationale"],
+    "additionalProperties": False,
+}
+
+
+def call_adversarial(
+    domain_path: Path,
+    n: int = 20,
+    context_mix: dict = None,
+    champion: dict = None,
+) -> list:
+    """
+    Generate adversarial scenarios targeting the champion's weak spots.
+    Returns a list of state dicts to inject into the next batch.
+    """
+    load_env(domain_path)
+    if str(domain_path) not in sys.path:
+        sys.path.insert(0, str(domain_path))
+    try:
+        sim = importlib.import_module("simulation")
+        sample_states = [sim.random_state() for _ in range(3)]
+    except Exception:
+        return []
+
+    mission_text = load_mission(domain_path)
+    rare_contexts = []
+    if context_mix:
+        rare_contexts = [k for k, _ in sorted(context_mix.items(), key=lambda x: x[1])[:5]]
+
+    user_prompt = f"""Generate {n} adversarial state scenarios for this domain.
+
+Mission: {mission_text or "(none)"}
+Champion philosophy: {champion.get("philosophy", "(unknown)") if champion else "(none yet)"}
+
+Sample states — your output must match this exact schema:
+{json.dumps(sample_states, indent=2)}
+
+Underrepresented contexts from recent tournament (generate more of these):
+{chr(10).join(f"  - {c}" for c in rare_contexts) if rare_contexts else "  (none identified — generate edge cases)"}
+
+Return each scenario as a JSON-encoded string in the 'scenarios' array.
+Each string must be valid JSON matching the schema above exactly."""
+
+    try:
+        data = structured_ai_call(
+            task_name="adversarial",
+            domain_path=domain_path,
+            model=MODEL_LIBRARY,
+            max_tokens=4096,
+            system_prompt="You are generating adversarial test scenarios for a strategy evaluation engine.",
+            user_prompt=user_prompt,
+            schema=_ADVERSARIAL_SCHEMA,
+            metadata={"n": n},
+        )
+        expected_keys = set(sample_states[0].keys()) if sample_states else set()
+        valid = []
+        for s in data.get("scenarios", []):
+            try:
+                state = json.loads(s)
+                if isinstance(state, dict) and set(state.keys()) >= expected_keys:
+                    valid.append(state)
+            except Exception:
+                continue
+        return valid[:n]
+    except Exception:
+        return []
+
+
 def call_library(
     playbook: list,
     hints: list,

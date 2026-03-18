@@ -399,13 +399,16 @@ autoresearch goes deep on one idea at a time. Autoforge goes wide across many si
 
 ## Model Configuration
 
-**Currently supports Anthropic models only.** OpenAI and Azure OpenAI backend support is on the roadmap.
-
 Set in `MyDomain/.env` or the root `.env`:
 
 ```bash
+# Anthropic (default)
 ANTHROPIC_API_KEY=sk-ant-...
-AUTOFORGE_AI_BACKEND=anthropic                    # or: manual
+AUTOFORGE_AI_BACKEND=anthropic                    # or: openai, manual
+
+# OpenAI
+# OPENAI_API_KEY=sk-...
+# AUTOFORGE_AI_BACKEND=openai
 
 # Override any model (optional — defaults shown)
 AUTOFORGE_DIRECTOR_MODEL=claude-opus-4-6          # between-batch director — Opus recommended for complex domains
@@ -414,6 +417,8 @@ AUTOFORGE_EXTRACT_MODEL=claude-haiku-4-5-20251001 # principle extraction
 ```
 
 The director is the most consequential call — it reads the full playbook and decides what to change. For serious domains (compliance, medical triage, high-stakes pricing) Opus is worth the cost. A typical overnight run makes ~40 director calls; the price difference is a few dollars.
+
+When using OpenAI, set the model overrides to OpenAI model names (e.g. `gpt-4o`, `gpt-4o-mini`).
 
 Use `AUTOFORGE_AI_BACKEND=manual` for file-based testing of `brain`, `extract`, and `director` without live API calls.
 

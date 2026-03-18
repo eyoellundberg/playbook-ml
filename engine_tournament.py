@@ -239,6 +239,8 @@ def run_batch(
     hints: list = None,
     use_brain: bool = False,
     workers: int = 1,
+    run_id: str = "",
+    adversarial_states: list = None,
 ) -> dict:
     """
     Run one batch of the tournament.
@@ -307,8 +309,15 @@ def run_batch(
     tag_candidate_wins       = defaultdict(lambda: defaultdict(int))
     tag_totals               = defaultdict(int)
 
-    states   = [_SIM.random_state() for _ in range(n_rounds)]
-    contexts = [build_context(s)    for s in states]
+    adversarial = adversarial_states or []
+    n_adv = min(len(adversarial), n_rounds // 5)
+    if n_adv > 0:
+        import random as _random
+        states = adversarial[:n_adv] + [_SIM.random_state() for _ in range(n_rounds - n_adv)]
+        _random.shuffle(states)
+    else:
+        states = [_SIM.random_state() for _ in range(n_rounds)]
+    contexts = [build_context(s) for s in states]
 
     # ── Score all rounds ──────────────────────────────────────────────────────
     score_args = [(state, candidates, candidate_names) for state in states]
@@ -343,6 +352,7 @@ def run_batch(
                 "winner":       winner,
                 "state":        state,
                 "archetype":    winner_name,
+                "run_id":       run_id,
                 "contenders": [
                     {
                         "name": name,

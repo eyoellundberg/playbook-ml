@@ -15,6 +15,19 @@ ENGINE_ROOT = Path(__file__).parent.parent
 console = Console()
 
 
+def load_sim(domain_path: Path):
+    """Import the domain's simulation module. Raises ImportError on failure."""
+    import importlib
+    load_env(domain_path)
+    if str(domain_path) not in sys.path:
+        sys.path.insert(0, str(domain_path))
+    os.chdir(domain_path)
+    try:
+        return importlib.import_module("simulation")
+    except Exception as e:
+        raise ImportError(f"simulation.py import failed: {e}") from e
+
+
 def load_env(domain_path: Path):
     """Load .env from domain folder, then engine root as fallback."""
     for env_file in [domain_path / ".env", ENGINE_ROOT / ".env"]:
@@ -56,13 +69,12 @@ def get_ai_backend() -> str:
 
 def _valid_anthropic_key() -> bool:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return False
-    if "..." in key:
-        return False
-    if key.lower().startswith("your_"):
-        return False
-    return True
+    return bool(key) and "..." not in key and not key.lower().startswith("your_")
+
+
+def _valid_openai_key() -> bool:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    return bool(key) and "..." not in key and not key.lower().startswith("your_")
 
 
 def ai_backend_available() -> bool:
@@ -70,15 +82,23 @@ def ai_backend_available() -> bool:
     backend = get_ai_backend()
     if backend == "manual":
         return True
-    if backend != "anthropic":
-        return False
-    if not _valid_anthropic_key():
-        return False
-    try:
-        import anthropic  # noqa: F401
-    except Exception:
-        return False
-    return True
+    if backend == "anthropic":
+        if not _valid_anthropic_key():
+            return False
+        try:
+            import anthropic  # noqa: F401
+        except Exception:
+            return False
+        return True
+    if backend == "openai":
+        if not _valid_openai_key():
+            return False
+        try:
+            import openai  # noqa: F401
+        except Exception:
+            return False
+        return True
+    return False
 
 
 def _validate_top_level_required(data: dict, schema: dict, task_name: str):
@@ -166,25 +186,35 @@ def structured_ai_call(
             metadata=metadata,
         )
 
-    if backend != "anthropic":
-        raise RuntimeError(f"Unsupported AI backend: {backend}")
+    if backend == "anthropic":
+        import anthropic
+        client = anthropic.Anthropic()
+        response = client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+        )
+        return json.loads(response.content[0].text)
 
-    import anthropic
-
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
-        output_config={
-            "format": {
+    if backend == "openai":
+        import openai
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={
                 "type": "json_schema",
-                "schema": schema,
-            }
-        },
-    )
-    return json.loads(response.content[0].text)
+                "json_schema": {"name": "response", "strict": True, "schema": schema},
+            },
+        )
+        return json.loads(response.choices[0].message.content)
+
+    raise RuntimeError(f"Unsupported AI backend: '{backend}'. Set AUTOFORGE_AI_BACKEND=anthropic or openai.")
 
 
 MODEL_DIRECTOR = os.environ.get("AUTOFORGE_DIRECTOR_MODEL", "claude-sonnet-4-6")
@@ -453,7 +483,6 @@ def git_commit_batch(domain: str, domain_path: Path, global_batch: int, result: 
         domain_path / "champion_archetype.json",
         domain_path / "top_candidates.json",
         domain_path / "simulation.py",
-        domain_path / "tournament.py",
         domain_path / "prompts",
     ]
     existing = [str(p.relative_to(ENGINE_ROOT)) for p in stage_targets if p.exists()]
