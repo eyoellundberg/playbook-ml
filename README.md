@@ -4,12 +4,18 @@ An autonomous strategy learning system. Describe a domain, run overnight, wake u
 
 ---
 
+## Why Autoforge?
+
+Most decisions in any domain follow patterns that can be learned — but the training data doesn't exist yet. Autoforge creates it. You describe the decision problem, it simulates thousands of scenarios, discovers what consistently wins, and distills that into a model that runs locally for free forever. No labelled dataset required. No ongoing API bill. The simulation is the teacher.
+
+---
+
 ## Installation
 
 ```bash
 git clone https://github.com/eyoellundberg/autoforge
-cd engine
-pip install -e .   # installs anthropic + rich, adds 'engine' CLI alias
+cd autoforge
+pip install -e .   # installs anthropic + rich, adds 'autoforge' CLI alias
 ```
 
 Or without installing:
@@ -21,14 +27,14 @@ python run.py <command>
 Set your API key (only needed for Stage 2):
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-# or add to MyDomain/.env — engine reads it automatically
+# or add to MyDomain/.env — Autoforge reads it automatically
 ```
 
 ---
 
 ## The Core Idea
 
-**The simulation is the teacher, not the AI.** You build a deterministic scoring function for your domain. The engine runs thousands of strategy candidates against it. What consistently wins becomes the playbook.
+**The simulation is the teacher, not the AI.** You build a deterministic scoring function for your domain. Autoforge runs thousands of strategy candidates against it. What consistently wins becomes the playbook.
 
 **Frontier models (Sonnet/Haiku) design the strategy space and extract conditional principles.** They generate the best possible training signal — named archetypes with philosophy, conditional rules from what won. They are never used at inference time.
 
@@ -42,7 +48,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 If both are true, Autoforge can learn it:
 
-1. **Can the job be described in a markdown file?** If someone can write what the job is, what good output looks like, and what the inputs are — the Engine can learn it.
+1. **Can the job be described in a markdown file?** If someone can write what the job is, what good output looks like, and what the inputs are — Autoforge can learn it.
 
 2. **Is the output structured?** Pricing decisions, scoring, triage, routing, forecasting — any job that is: read inputs → produce structured output.
 
@@ -142,7 +148,7 @@ Saturation:
 
 ## Adding Your Domain
 
-Four things to provide. Everything else is the engine.
+Four things to provide. Everything else is Autoforge.
 
 ```
 MyDomain/
@@ -156,14 +162,14 @@ MyDomain/
     └── director.md    # give the director domain context
 ```
 
-**`simulation.py` is the investment.** The engine only learns what the simulation teaches. If it rewards the wrong behavior, the whole engine optimizes toward garbage. Calibration checklist:
+**`simulation.py` is the investment.** Autoforge only learns what the simulation teaches. If it rewards the wrong behavior, the whole system optimizes toward garbage. Calibration checklist:
 
 - Does the expected strategy type win in each scenario class?
 - Does varying scenario factors change which strategy wins?
 - Is the score range reasonable?
 - No single strategy dominates regardless of scenario?
 
-Real data is optional: place CSVs in `MyDomain/data/`. Only `simulation.py` reads it. `random_state()` samples from real distributions instead of synthetic ones. The engine doesn't change.
+Real data is optional: place CSVs in `MyDomain/data/`. Only `simulation.py` reads it. `random_state()` samples from real distributions instead of synthetic ones. Autoforge doesn't change.
 
 ---
 
@@ -185,7 +191,7 @@ python run.py validate --domain StockTiming
 python run.py status --domain StockTiming
 ```
 
-StockTiming optimizes moving average crossover parameters across simulated market regimes (trending, ranging, volatile, event). It's a minimal but complete example of the engine loop — use it to understand the system before building your own domain.
+StockTiming optimizes moving average crossover parameters across simulated market regimes (trending, ranging, volatile, event). It's a minimal but complete example of the Autoforge loop — use it to understand the system before building your own domain.
 
 ---
 
@@ -223,7 +229,7 @@ MyDomain/               your domain (one per problem)
     └── last_run.json           last run summary (do not commit)
 ```
 
-The engine root has zero domain knowledge. `simulation.py` is the only file that knows what your domain is.
+The Autoforge root has zero domain knowledge. `simulation.py` is the only file that knows what your domain is.
 
 ---
 
@@ -240,7 +246,7 @@ The director issues a verdict after every batch:
 | `needs_calibration` | Sim rewarding wrong behavior | Fix simulation.py |
 | `saturated` | Playbook full, score stable | Export and train local model |
 
-`saturated` is the success state. The engine has learned everything this simulation can teach.
+`saturated` is the success state. Autoforge has learned everything this simulation can teach.
 
 ---
 
