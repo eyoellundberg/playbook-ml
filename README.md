@@ -38,29 +38,29 @@ At the end of a run, you have five things:
 
 ---
 
-## Try It Now — 4 Commands
-
-A complete working domain is included. No API key needed:
+## Try It Now — 5 Commands
 
 ```bash
 git clone https://github.com/eyoellundberg/autoforge
 cd autoforge
 pip install -e .
 
+# Generate a domain from a plain-English description (~$0.05)
+python run.py bootstrap FreightQuoting \
+  --description "freight brokerage load quoting, spot and contract lanes"
+
+# Edit the one control file — sharpen abstention rules and failure criteria
+open FreightQuoting/mission.md
+
+# Check the sim is sensible before committing to an overnight run
+python run.py calibrate --domain FreightQuoting
+
 # Run the tournament (free, no API key)
-python run.py run --domain StockTiming --batches 5 --rounds 100
+python run.py run --domain FreightQuoting --batches 5 --rounds 100
 
 # See what it learned
-python run.py status --domain StockTiming
-
-# Run the eval set — 6 known scenarios, pass/fail
-python run.py eval --domain StockTiming
-
-# Export the local model training data
-python run.py export --domain StockTiming
+python run.py status --domain FreightQuoting
 ```
-
-StockTiming is now a synthetic stock-entry timing world: given a public-stock setup, decide whether to buy now, wait, or pass. It is still a toy, but it now has ambiguous breakouts, pullbacks, base-building setups, event spikes, and abstention pressure, so the example feels more like a real judgment problem. In the current checked-in state, the free Stage 1 loop reaches `5/6` eval scenarios; Stage 2 is meant to close the remaining gap.
 
 ---
 
@@ -87,15 +87,6 @@ Booking a load at negative margin. Losing a contract lane to a competitor
 by more than 5% on 3 consecutive bids.
 ```
 
-Generate everything from a description:
-
-```bash
-python run.py bootstrap FreightQuoting \
-  --description "freight brokerage load quoting, spot and contract lanes"
-# Writes: simulation.py, mission.md, prompts/, pack.json, evals/
-# Then: edit mission.md to sharpen the abstention rules and failure criteria
-```
-
 Then calibrate:
 
 ```bash
@@ -116,19 +107,19 @@ python run.py calibrate --domain FreightQuoting
 
 ```bash
 # Stage 1 — free, no API key needed
-python run.py run --domain StockTiming --batches 10 --rounds 150
+python run.py run --domain FreightQuoting --batches 10 --rounds 150
 
 # Stage 2 — AI archetypes + director (~$0.50)
 export ANTHROPIC_API_KEY=sk-ant-...
-python run.py run --domain StockTiming --brain --batches 8 --rounds 150
+python run.py run --domain FreightQuoting --brain --batches 8 --rounds 150
 
 # Fully autonomous overnight run
-python run.py run --domain StockTiming --auto --batches 20 --rounds 1000 --workers 8
+python run.py run --domain FreightQuoting --auto --batches 20 --rounds 1000 --workers 8
 
 # Morning check
-python run.py status --domain StockTiming
-python run.py eval   --domain StockTiming
-python run.py export --domain StockTiming
+python run.py status --domain FreightQuoting
+python run.py eval   --domain FreightQuoting
+python run.py export --domain FreightQuoting
 ```
 
 ---
@@ -138,28 +129,25 @@ python run.py export --domain StockTiming
 Domains are versioned, shareable packages. Bundle yours and share it:
 
 ```bash
-python run.py install StockTiming-2.0.0.zip        # install from a .zip
+python run.py install FreightQuoting-1.0.0.zip        # install from a .zip
 python run.py install /path/to/my-domain-1.0.0.zip
 ```
 
 Bundle your trained domain to share:
 
 ```bash
-python run.py pack StockTiming
-# → StockTiming-2.0.0.zip  (simulation + playbook + evals + prompts)
+python run.py pack FreightQuoting
+# → FreightQuoting-1.0.0.zip  (simulation + playbook + evals + prompts)
 ```
 
 Run the eval set to verify a pack is good:
 
 ```bash
-python run.py eval --domain StockTiming
-# ✗ clean_breakout      score  1.6  min  2.6  ← current weak spot
-# ✓ fragile_breakout    score  6.8  min  1.6
-# ✓ supported_pullback  score  4.4  min  1.8
-# ✓ quiet_accumulation  score  4.5  min  2.0
-# ✓ news_pump           score  8.3  min  2.4
-# ✓ macro_headwind      score  6.3  min  2.2
-# 5/6 passed (83%) — Stage 2 should target the clean-breakout miss
+python run.py eval --domain FreightQuoting
+# ✓ spot_high_demand     score  6.2  min  2.0
+# ✓ spot_low_margin      score  4.1  min  1.8
+# ✗ contract_volatile    score  1.4  min  2.6  ← current weak spot
+# 2/3 passed — Stage 2 should target the volatile-contract miss
 ```
 
 Each pack includes `evals/scenarios.jsonl` — known scenarios with expected minimum scores. These are the domain's test suite.
@@ -173,7 +161,7 @@ The simulation teaches the initial policy. Real decisions close the loop:
 ```bash
 # Import real production decisions (your system already logs these)
 # Format: {"state": {...}, "decision": {...}, "outcome": 4.2}
-python run.py import --domain StockTiming --file live_trades.jsonl
+python run.py import --domain FreightQuoting --file live_trades.jsonl
 
 # Reports:
 #   - Which records are valid vs schema
@@ -181,7 +169,7 @@ python run.py import --domain StockTiming --file live_trades.jsonl
 #   - Records added to Stage 3 training data
 
 # Re-export to include real decisions
-python run.py export --domain StockTiming
+python run.py export --domain FreightQuoting
 ```
 
 Each import cycle shifts the training distribution toward real conditions. The model gets better at the actual job, not just the simulated one.
@@ -239,10 +227,10 @@ When `reward_hacking` or `needs_calibration` fires, the director outputs specifi
 Three stages, each building on the last:
 
 **Stage 1 — Evolutionary mutation (free)**
-Generates 16 candidate strategies per batch. Each batch evolves from the last: top winners kept, mutated with gaussian noise, crossed over, random fill for exploration. The engine now also preserves categorical specialists from `build_context()` so one safe average policy is less likely to wipe out breakout experts, pullback experts, or risk-off experts. No API calls. Runs as fast as your CPU.
+Generates 16 candidate strategies per batch. Each batch evolves from the last: top winners kept, mutated with gaussian noise, crossed over, random fill for exploration. The engine preserves categorical specialists from `build_context()` so one safe average policy is less likely to wipe out breakout experts, pullback experts, or risk-off experts. No API calls. Runs as fast as your CPU.
 
 **Stage 2 — Frontier AI direction (~$0.50/run)**
-Sonnet reads the warm playbook and generates 16 named strategy archetypes — each with a philosophy, not just parameters. The sim tests all 16 across hundreds of scenarios. Haiku extracts conditional principles every 10 rounds. The director reads results between batches, retires losers, sharpens the next library, and the brain prompt now includes failed eval scenarios so Stage 2 can target what the current library still misses.
+Sonnet reads the warm playbook and generates 16 named strategy archetypes — each with a philosophy, not just parameters. The sim tests all 16 across hundreds of scenarios. Haiku extracts conditional principles every 10 rounds. The director reads results between batches, retires losers, sharpens the next library, and the brain prompt includes failed eval scenarios so Stage 2 can target what the current library still misses.
 
 **Stage 3 — Local model (free forever)**
 Export the tournament log as training data. For numerical domains: train XGBoost on `training_features.csv` and optionally use `training_preferences.jsonl` for pairwise preference learning or ranking. For language domains: fine-tune Qwen3-4B via MLX-LM on Apple Silicon. No more API calls. Ever.
@@ -365,12 +353,10 @@ MyDomain/
     ├── prompts/                AI-operational files (generated by bootstrap)
     │   ├── brain.md            archetype generation instructions
     │   ├── extract.md          principle extraction instructions
-    │   └── director.md        between-batch director context
+    │   └── director.md         between-batch director context
     ├── pack.json               version, author, metric                                ← commit this
     ├── evals/scenarios.jsonl   known scenarios + expected scores                      ← commit this
     ├── playbook.jsonl          learned conditional principles                         ← commit this
-    ├── retired_topics.json     permanent principle blocklist                          ← commit this
-    ├── champion_archetype.json best archetype from last batch                         ← commit this
     ├── top_candidates.json     top Stage 1 winners                                    ← commit this
     ├── training_preferences.jsonl pairwise winner-vs-runner-up examples               (generated by export)
     ├── thinking_log.md         director reasoning trail                               (do not commit)
