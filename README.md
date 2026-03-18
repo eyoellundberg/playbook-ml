@@ -399,21 +399,25 @@ autoresearch goes deep on one idea at a time. Autoforge goes wide across many si
 
 ## Model Configuration
 
+**Currently supports Anthropic models only.** OpenAI and Azure OpenAI backend support is on the roadmap.
+
 Set in `MyDomain/.env` or the root `.env`:
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-AUTOFORGE_AI_BACKEND=anthropic                # or: manual
+AUTOFORGE_AI_BACKEND=anthropic                    # or: manual
 
 # Override any model (optional — defaults shown)
-AUTOFORGE_DIRECTOR_MODEL=claude-sonnet-4-6        # between-batch director
+AUTOFORGE_DIRECTOR_MODEL=claude-opus-4-6          # between-batch director — Opus recommended for complex domains
 AUTOFORGE_LIBRARY_MODEL=claude-sonnet-4-6         # archetype generation
 AUTOFORGE_EXTRACT_MODEL=claude-haiku-4-5-20251001 # principle extraction
 ```
 
+The director is the most consequential call — it reads the full playbook and decides what to change. For serious domains (compliance, medical triage, high-stakes pricing) Opus is worth the cost. A typical overnight run makes ~40 director calls; the price difference is a few dollars.
+
 Use `AUTOFORGE_AI_BACKEND=manual` for file-based testing of `brain`, `extract`, and `director` without live API calls.
 
-Tighter budget: swap Sonnet for Haiku everywhere. More quality: use Opus for the director.
+Tighter budget: swap everything for Haiku. Fast iteration: Sonnet throughout. Production domain: Opus for director, Sonnet for brain, Haiku for extract.
 
 ---
 
