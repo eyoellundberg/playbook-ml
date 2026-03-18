@@ -1,0 +1,15 @@
+{
+  "name": "Micro Pulse Turbo",
+  "philosophy": "Variant of Micro Pulse with even tighter fast window and near-zero entry threshold to front-run range reversals in very slow-moving markets.",
+  "best_for": "ranging",
+  "strategy": {
+    "fast_window": 3,
+    "slow_window": 14,
+    "entry_threshold": 0.001,
+    "exit_threshold": 0.006,
+    "position_size": 0.65,
+    "regime_filter": "none"
+  },
+  "nonevent_wins": 6,
+  "total_wins": 6
+}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# OS
+.DS_Store
+
+# Editor / tooling
+.claude/
+
+# API keys — never commit
+.env
+*/.env
+
+# Run artifacts — do not commit
+*/tournament_log.jsonl
+*/thinking_log.md
+*/reasoning_log.jsonl
+*/training_data.jsonl
+*/last_run.json
+
+# Commit these — they are the learned state
+# playbook.jsonl
+# retired_topics.json
+# champion_archetype.json
+# top_candidates.json
