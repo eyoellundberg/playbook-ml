@@ -1,6 +1,6 @@
 [
   {
-    "name": "procedural_1",
+    "name": "procedural_0",
     "strategy": {
       "fast_window": 7,
       "slow_window": 14,
@@ -9,10 +9,34 @@
       "position_size": 0.9,
       "regime_filter": "trend"
     },
-    "wins": 405
+    "wins": 237
   },
   {
     "name": "procedural_6",
+    "strategy": {
+      "fast_window": 8,
+      "slow_window": 40,
+      "entry_threshold": 0.0045,
+      "exit_threshold": 0.012,
+      "position_size": 0.9,
+      "regime_filter": "none"
+    },
+    "wins": 211
+  },
+  {
+    "name": "procedural_2",
+    "strategy": {
+      "fast_window": 7,
+      "slow_window": 12,
+      "entry_threshold": 0.0016,
+      "exit_threshold": 0.0019,
+      "position_size": 1.0,
+      "regime_filter": "trend"
+    },
+    "wins": 182
+  },
+  {
+    "name": "procedural_1",
     "strategy": {
       "fast_window": 2,
       "slow_window": 14,
@@ -21,30 +45,6 @@
       "position_size": 0.9738,
       "regime_filter": "trend"
     },
-    "wins": 283
-  },
-  {
-    "name": "procedural_0",
-    "strategy": {
-      "fast_window": 8,
-      "slow_window": 40,
-      "entry_threshold": 0.002,
-      "exit_threshold": 0.012,
-      "position_size": 0.9,
-      "regime_filter": "none"
-    },
-    "wins": 239
-  },
-  {
-    "name": "procedural_9",
-    "strategy": {
-      "fast_window": 8,
-      "slow_window": 40,
-      "entry_threshold": 0.002,
-      "exit_threshold": 0.012,
-      "position_size": 0.9738,
-      "regime_filter": "none"
-    },
-    "wins": 231
+    "wins": 178
   }
 ]
