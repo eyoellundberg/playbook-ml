@@ -190,8 +190,10 @@ IMPORTANT: Review {args.domain}/simulation.py before running.
 The simulation is the only thing the engine learns from — get it right.
 
 Next:
-  python run.py run --domain {args.domain} --batches 3 --rounds 50   # sanity check
-  python run.py run --domain {args.domain} --brain --batches 5 --rounds 150""")
+  python run.py validate  --domain {args.domain}               # check sim contract
+  python run.py calibrate --domain {args.domain}               # check score range + dominance
+  python run.py run       --domain {args.domain} --batches 5 --rounds 100
+  python run.py run       --domain {args.domain} --brain --batches 5 --rounds 150""")
 
 
 def cmd_new(args):

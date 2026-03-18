@@ -682,6 +682,139 @@ def cmd_eval(args):
         sys.exit(1)
 
 
+def cmd_tail(args):
+    """Live snapshot of an in-progress run."""
+    domain_path = ENGINE_ROOT / args.domain
+    if not domain_path.exists():
+        print(f"Domain not found: {domain_path}")
+        sys.exit(1)
+
+    checkpoint_path = domain_path / "run_checkpoint.json"
+    ckpt = None
+    if checkpoint_path.exists():
+        try:
+            ckpt = json.loads(checkpoint_path.read_text())
+        except Exception:
+            pass
+
+    log_path = domain_path / "tournament_log.jsonl"
+    recent_scores = []
+    total_rounds = 0
+    if log_path.exists():
+        lines = [l for l in log_path.read_text().splitlines() if l.strip()]
+        total_rounds = len(lines)
+        for line in lines[-50:]:
+            try:
+                entry = json.loads(line)
+                score = entry.get("score")
+                if score is not None:
+                    recent_scores.append(float(score))
+            except Exception:
+                pass
+
+    print(f"\nTail — {args.domain}")
+    print(f"{'─'*40}")
+
+    if ckpt:
+        stage = "Stage 2 (AI)" if ckpt.get("use_brain") else "Stage 1 (evolutionary)"
+        pb_sizes = ckpt.get("playbook_sizes", [])
+        print(f"Batch:    {ckpt['global_batch']}  (year {ckpt['year_num']})")
+        print(f"Stage:    {stage}")
+        print(f"Playbook: {pb_sizes[-1] if pb_sizes else '?'} principles")
+        pa = ckpt.get("prior_analysis") or {}
+        if pa.get("verdict"):
+            print(f"Verdict:  {pa['verdict']}")
+        if pa.get("next_batch_focus"):
+            print(f"Focus:    {pa['next_batch_focus'][:72]}")
+        rows = ckpt.get("all_batch_rows", [])[-6:]
+        if rows:
+            print()
+            for row in rows:
+                arrow = "↑" if row["trend"] == "up" else ("↓" if row["trend"] == "down" else "─")
+                print(f"  batch {row['batch']:3d}  avg {row['avg']:6.2f}  best {row['best']:6.2f}  {arrow}")
+    else:
+        print("No active run checkpoint.")
+
+    print(f"\nRounds logged: {total_rounds}")
+    if recent_scores:
+        avg = sum(recent_scores) / len(recent_scores)
+        print(f"Last 50:  avg {avg:.2f}  min {min(recent_scores):.2f}  max {max(recent_scores):.2f}")
+    print()
+
+
+def cmd_train(args):
+    """Train a Stage 3 model from exported training data."""
+    domain_path = ENGINE_ROOT / args.domain
+    if not domain_path.exists():
+        print(f"Domain not found: {domain_path}")
+        sys.exit(1)
+
+    from engine_export import _detect_domain_type, export_training_data
+    domain_type = _detect_domain_type(domain_path)
+
+    csv_path   = domain_path / "training_features.csv"
+    jsonl_path = domain_path / "training_data.jsonl"
+
+    # Auto-export if nothing exists yet
+    if not csv_path.exists() and not jsonl_path.exists():
+        print("No training data found — running export first...\n")
+        export_training_data(domain_path)
+
+    if domain_type == "numerical":
+        if not csv_path.exists():
+            print(f"No training_features.csv — run: python run.py export --domain {args.domain}")
+            sys.exit(1)
+
+        try:
+            import xgboost as xgb  # type: ignore
+            import pandas as pd    # type: ignore
+            import numpy as np     # type: ignore
+        except ImportError as e:
+            print(f"Missing package: {e}")
+            print("Install with: pip install xgboost pandas numpy")
+            sys.exit(1)
+
+        print(f"Training XGBoost on {csv_path.name}...")
+        df = pd.read_csv(csv_path)
+        feature_cols = [c for c in df.columns if c not in ("score", "uncertain")]
+        X = df[feature_cols].values
+        y = df["score"].values
+
+        dtrain = xgb.DMatrix(X, label=y, feature_names=feature_cols)
+        params  = {"max_depth": 4, "eta": 0.1, "objective": "reg:squarederror", "verbosity": 0}
+        model   = xgb.train(params, dtrain, num_boost_round=200,
+                            evals=[(dtrain, "train")], verbose_eval=50)
+
+        model_path = domain_path / "model.json"
+        model.save_model(str(model_path))
+
+        preds  = model.predict(dtrain)
+        ss_res = float(np.sum((y - preds) ** 2))
+        ss_tot = float(np.sum((y - y.mean()) ** 2))
+        r2     = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+        print(f"\nSaved: {args.domain}/model.json")
+        print(f"R²: {r2:.3f}  ({len(y)} examples, {len(feature_cols)} features)")
+        print(f"\nLoad at inference:")
+        print(f"  m = xgb.Booster(); m.load_model('{args.domain}/model.json')")
+
+    else:
+        if not jsonl_path.exists():
+            print(f"No training_data.jsonl — run: python run.py export --domain {args.domain}")
+            sys.exit(1)
+
+        n = sum(1 for l in jsonl_path.read_text().splitlines() if l.strip())
+        dn = args.domain
+        print(f"Language domain — {n} training examples")
+        print(f"\nFine-tune (Apple Silicon):")
+        print(f"  mlx_lm.lora --model mlx-community/Qwen3-4B-4bit \\")
+        print(f"               --data {dn}/ --train --iters 1000")
+        print(f"\nFuse + Ollama:")
+        print(f"  mlx_lm.fuse --model mlx-community/Qwen3-4B-4bit \\")
+        print(f"               --adapter-path {dn}/adapters --save-path {dn}/fused-model")
+        print(f'  ollama create {dn.lower()} -f - <<EOF\nFROM ./{dn}/fused-model\nEOF')
+
+
 def cmd_import(args):
     """
     Import real production decisions into the domain's training data.

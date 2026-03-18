@@ -13,7 +13,7 @@ import argparse
 
 from commands.bootstrap import cmd_bootstrap, cmd_new
 from commands.run_cmd import cmd_run
-from commands.tools import cmd_calibrate, cmd_validate, cmd_export, cmd_status, cmd_pack, cmd_install, cmd_eval, cmd_import
+from commands.tools import cmd_calibrate, cmd_validate, cmd_export, cmd_status, cmd_pack, cmd_install, cmd_eval, cmd_import, cmd_tail, cmd_train
 
 
 def main():
@@ -80,6 +80,14 @@ def main():
     p_import.add_argument("--domain", required=True, help="Domain subfolder name")
     p_import.add_argument("--file",   required=True, help="Path to JSONL file of real decisions")
 
+    # tail
+    p_tail = subparsers.add_parser("tail", help="Show live snapshot of an in-progress run")
+    p_tail.add_argument("--domain", required=True, help="Domain subfolder name")
+
+    # train
+    p_train = subparsers.add_parser("train", help="Train a Stage 3 model from exported data")
+    p_train.add_argument("--domain", required=True, help="Domain subfolder name")
+
     args = parser.parse_args()
 
     if args.command == "bootstrap":
@@ -104,3 +112,7 @@ def main():
         cmd_eval(args)
     elif args.command == "import":
         cmd_import(args)
+    elif args.command == "tail":
+        cmd_tail(args)
+    elif args.command == "train":
+        cmd_train(args)
