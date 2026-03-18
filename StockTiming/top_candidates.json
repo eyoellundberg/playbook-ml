@@ -1,17 +1,5 @@
 [
   {
-    "name": "procedural_6",
-    "strategy": {
-      "fast_window": 7,
-      "slow_window": 10,
-      "entry_threshold": 0.0,
-      "exit_threshold": 0.0019,
-      "position_size": 1.0,
-      "regime_filter": "trend"
-    },
-    "wins": 14
-  },
-  {
     "name": "procedural_1",
     "strategy": {
       "fast_window": 8,
@@ -21,29 +9,41 @@
       "position_size": 0.9,
       "regime_filter": "none"
     },
-    "wins": 10
+    "wins": 12
   },
   {
     "name": "procedural_0",
     "strategy": {
       "fast_window": 7,
-      "slow_window": 14,
-      "entry_threshold": 0.0016,
+      "slow_window": 10,
+      "entry_threshold": 0.0,
       "exit_threshold": 0.0019,
-      "position_size": 0.9,
+      "position_size": 1.0,
       "regime_filter": "trend"
     },
-    "wins": 6
+    "wins": 8
   },
   {
-    "name": "procedural_10",
+    "name": "procedural_15",
     "strategy": {
-      "fast_window": 8,
-      "slow_window": 36,
-      "entry_threshold": 0.0041,
-      "exit_threshold": 0.0104,
-      "position_size": 0.5546,
-      "regime_filter": "volatility"
+      "fast_window": 15,
+      "slow_window": 31,
+      "entry_threshold": 0.0004,
+      "exit_threshold": 0.009,
+      "position_size": 0.8475,
+      "regime_filter": "none"
+    },
+    "wins": 8
+  },
+  {
+    "name": "procedural_4",
+    "strategy": {
+      "fast_window": 6,
+      "slow_window": 40,
+      "entry_threshold": 0.0045,
+      "exit_threshold": 0.0148,
+      "position_size": 0.9,
+      "regime_filter": "none"
     },
     "wins": 6
   }
