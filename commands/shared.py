@@ -173,6 +173,7 @@ def structured_ai_call(
     user_prompt: str,
     schema: dict,
     metadata: dict | None = None,
+    thinking: bool = False,
 ) -> dict:
     """Run a structured AI call via the configured backend."""
     backend = get_ai_backend()
@@ -189,14 +190,18 @@ def structured_ai_call(
     if backend == "anthropic":
         import anthropic
         client = anthropic.Anthropic()
-        response = client.messages.create(
+        kwargs = dict(
             model=model,
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
             output_config={"format": {"type": "json_schema", "schema": schema}},
         )
-        return json.loads(response.content[0].text)
+        if thinking:
+            kwargs["thinking"] = {"type": "adaptive"}
+        response = client.messages.create(**kwargs)
+        text_block = next(b for b in response.content if b.type == "text")
+        return json.loads(text_block.text)
 
     if backend == "openai":
         import openai
@@ -412,11 +417,12 @@ Leave empty [] for converging / exploring / stalled / saturated.
         task_name="director",
         domain_path=domain_path,
         model=MODEL_DIRECTOR,
-        max_tokens=2048,
+        max_tokens=8000,
         system_prompt=system_prompt,
         user_prompt=prompt,
         schema=DIRECTOR_SCHEMA,
         metadata={"batch_num": batch_num, "playbook_size": result["playbook_size"]},
+        thinking=True,
     )
 
 
