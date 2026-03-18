@@ -92,13 +92,21 @@ def cmd_run(args):
 
             print(f"[Y{year_num} Batch {batch_num}/{args.batches}] running {args.rounds} rounds", end="", flush=True)
 
-            result = run_batch(
-                args.rounds,
-                generation_offset=generation_offset,
-                hints=hints,
-                use_brain=use_brain,
-                workers=args.workers,
-            )
+            try:
+                result = run_batch(
+                    args.rounds,
+                    generation_offset=generation_offset,
+                    hints=hints,
+                    use_brain=use_brain,
+                    workers=args.workers,
+                )
+            except Exception as e:
+                print(f"\n  [batch error: {e}] — skipping to next batch")
+                with open(thinking_log, "a") as f:
+                    f.write(f"\n*Batch {global_batch} failed: {e}*\n\n")
+                generation_offset += args.rounds
+                continue
+
             all_results.append(result)
             generation_offset += args.rounds
 
@@ -119,13 +127,21 @@ def cmd_run(args):
             has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
             if has_api_key:
                 print(f"  director analyzing...", end="", flush=True)
-                analysis = call_director(global_batch, result, prior_analysis, all_results, domain_path, playbook_sizes)
-                append_thinking_log(thinking_log, global_batch, result, analysis)
-                verdict = analysis["verdict"]
-                print(f"  [{verdict}]")
-                print(f"  -> {analysis['next_batch_focus'][:80]}")
-                if analysis["concerns"]:
-                    print(f"  ! {analysis['concerns'][0]}")
+                try:
+                    analysis = call_director(global_batch, result, prior_analysis, all_results, domain_path, playbook_sizes)
+                    append_thinking_log(thinking_log, global_batch, result, analysis)
+                    verdict = analysis["verdict"]
+                    print(f"  [{verdict}]")
+                    print(f"  -> {analysis['next_batch_focus'][:80]}")
+                    if analysis["concerns"]:
+                        print(f"  ! {analysis['concerns'][0]}")
+                except Exception as e:
+                    print(f"  [director error: {e}] — continuing")
+                    analysis = {"verdict": "exploring", "hints": hints, "retire_principles": [],
+                                "next_batch_focus": "director unavailable — continuing previous hints",
+                                "observations": [], "principles_gaining_confidence": [],
+                                "concerns": [], "mistakes_to_note": []}
+                    verdict = "exploring"
             else:
                 # Stage 1 free mode — no director without API key
                 analysis = {"verdict": "exploring", "hints": [], "retire_principles": [],
