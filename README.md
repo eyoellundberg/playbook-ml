@@ -21,6 +21,55 @@ autoforge FreightQuoting "freight brokerage load quoting, spot and contract lane
 ✔ Done in 12m 34s.  Deploy: cp -r FreightQuoting/specialist/ /your/app/
 ```
 
+## Python SDK
+
+If you already have a scoring function, skip the CLI entirely:
+
+```python
+pip install autoforge
+```
+
+```python
+import random
+from autoforge import run
+
+# 1. Define what a scenario looks like
+def my_state():
+    return {
+        "demand":      random.uniform(0.0, 1.0),
+        "competition": random.choice(["low", "medium", "high"]),
+        "is_peak":     random.random() > 0.8,
+    }
+
+# 2. Define how to score a strategy against a scenario
+def my_simulate(candidate, state):
+    base = candidate["price"] * state["demand"]
+    if state["competition"] == "high":
+        base *= (1 - candidate["discount"])
+    return base
+
+# 3. Define what a strategy looks like
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "price":    {"type": "number", "minimum": 0.5, "maximum": 2.0},
+        "discount": {"type": "number", "minimum": 0.0, "maximum": 0.4},
+    },
+    "required": ["price", "discount"],
+    "additionalProperties": False,
+}
+
+# 4. Run
+champion = run(simulate=my_simulate, state=my_state, schema=SCHEMA)
+
+print(champion.strategy)    # {"price": 1.42, "discount": 0.08}
+print(champion.philosophy)  # "Moderate price with low discount wins medium competition"
+print(champion.playbook)    # [{"principle": "...", "confidence": 0.87}, ...]
+print(champion.score)       # 0.94
+```
+
+Set `ANTHROPIC_API_KEY` in your environment or pass `api_key=` directly. Run without a key using `brain=False` for evolutionary-only mode (free, no AI calls).
+
 ## How it works
 
 ```

@@ -234,9 +234,13 @@ def run_batch(
 
     if str(domain_path) not in sys.path:
         sys.path.insert(0, str(domain_path))
-    if "simulation" in sys.modules:
-        del sys.modules["simulation"]
-    _SIM = importlib.import_module("simulation")
+    existing = sys.modules.get("simulation")
+    if existing and getattr(existing, "_synthetic", False):
+        _SIM = existing  # SDK-injected module — don't reload from disk
+    else:
+        if "simulation" in sys.modules:
+            del sys.modules["simulation"]
+        _SIM = importlib.import_module("simulation")
 
     build_context = getattr(_SIM, "build_context", None) or (lambda s: dict(s))
     is_event      = getattr(_SIM, "is_event", None)

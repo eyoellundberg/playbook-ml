@@ -1,12 +1,30 @@
 [project]
 name = "autoforge"
 version = "0.1.0"
-description = "Autonomous strategy learning via simulation tournament + AI direction"
+description = "Describe a decision. Get a deployed specialist. No labeled data."
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
+keywords = ["ai", "strategy", "simulation", "optimization", "machine-learning", "autonomous"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = []
 
 [project.optional-dependencies]
 train-numeric = ["xgboost", "pandas", "numpy"]
+
+[project.urls]
+Homepage = "https://github.com/autoforge/autoforge"
+Documentation = "https://github.com/autoforge/autoforge/wiki"
+Issues = "https://github.com/autoforge/autoforge/issues"
 
 [project.scripts]
 autoforge = "cli:main"
@@ -17,3 +35,4 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+exclude = [".venv", ".env", "*.backup", "**/__pycache__"]

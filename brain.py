@@ -278,6 +278,9 @@ def call_adversarial(
     if context_mix:
         rare_contexts = [k for k, _ in sorted(context_mix.items(), key=lambda x: x[1])[:5]]
 
+    n_crisis = max(2, n // 5)
+    n_edge   = n - n_crisis
+
     user_prompt = f"""Generate {n} adversarial state scenarios for this domain.
 
 Mission: {mission_text or "(none)"}
@@ -286,7 +289,13 @@ Champion philosophy: {champion.get("philosophy", "(unknown)") if champion else "
 Sample states — your output must match this exact schema:
 {json.dumps(sample_states, indent=2)}
 
-Underrepresented contexts from recent tournament (generate more of these):
+REQUIRED — generate exactly {n_crisis} CRISIS / DOOMSDAY scenarios (regardless of what the \
+tournament has seen so far). These must represent the worst imaginable conditions for this domain: \
+catastrophic collapses, coordinated attacks, cascading failures, pandemic-level shocks, \
+adversarial extremes — whatever "everything goes wrong at once" looks like here. \
+Push numeric values to their worst extremes. Do not generate average or edge-case states for these slots.
+
+REMAINING {n_edge} scenarios — target the champion's weak spots and underrepresented contexts:
 {chr(10).join(f"  - {c}" for c in rare_contexts) if rare_contexts else "  (none identified — generate edge cases)"}
 
 Return each scenario as a JSON-encoded string in the 'scenarios' array.
